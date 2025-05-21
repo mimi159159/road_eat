@@ -6,5 +6,6 @@ urlpatterns = [
     path('places/add/', views.RestaurantCreateAPI.as_view()), 
     path('routes/', views.UserRouteListCreateAPI.as_view()),
     path('register/', views.UserRegisterAPI.as_view()),
+    
 
 ]
