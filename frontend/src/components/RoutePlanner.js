@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import {
-  GoogleMap, LoadScript, DirectionsRenderer, Marker, Autocomplete
+  GoogleMap, LoadScript, DirectionsRenderer, Marker, Autocomplete, InfoWindow
 } from '@react-google-maps/api';
 
 const mapContainerStyle = { width: '100%', height: '90vh' };
@@ -16,6 +16,9 @@ function RoutePlanner({ token }) {
   const [showFilters, setShowFilters] = useState(false);
   const [maxDistanceKm, setMaxDistanceKm] = useState(8);
   const [maxEtaMinutes, setMaxEtaMinutes] = useState(20);
+  const [selectedPlace, setSelectedPlace] = useState(null);
+  const [modalPlace, setModalPlace] = useState(null);
+  const [waypoint, setWaypoint] = useState(null);
 
   const [originAutocomplete, setOriginAutocomplete] = useState(null);
   const [destinationAutocomplete, setDestinationAutocomplete] = useState(null);
@@ -37,33 +40,47 @@ function RoutePlanner({ token }) {
     }
   };
 
-  const calculateRoute = () => {
+  const calculateRoute = (overrideWaypoint = null) => {
     const DirectionsServiceInstance = new window.google.maps.DirectionsService();
-    DirectionsServiceInstance.route(
-      { origin, destination, travelMode: window.google.maps.TravelMode.DRIVING },
-      (result, status) => {
-        if (status === 'OK') {
-          setDirections(result);
-          setPlaces([]);
+    const routeConfig = {
+      origin,
+      destination,
+      travelMode: window.google.maps.TravelMode.DRIVING
+    };
+    if (overrideWaypoint || waypoint) {
+      routeConfig.waypoints = [{ location: overrideWaypoint || waypoint, stopover: true }];
+    }
 
-          const leg = result.routes[0].legs[0];
-          setEta(leg.duration.text);
-          setDistance(leg.distance.text);
+    DirectionsServiceInstance.route(routeConfig, (result, status) => {
+      if (status === 'OK') {
+        setDirections(result);
+        setPlaces([]);
 
-          const routePoints = result.routes[0].overview_path;
-          for (let i = 0; i < routePoints.length; i += 20) {
-            searchRestaurants(routePoints[i]);
-          }
+        const leg = result.routes[0].legs.reduce(
+          (acc, leg) => {
+            acc.duration += leg.duration.value;
+            acc.distance += leg.distance.value;
+            return acc;
+          },
+          { duration: 0, distance: 0 }
+        );
 
-          axios.post('http://127.0.0.1:8000/api/routes/', 
-            { origin, destination, eta: leg.duration.text, distance: leg.distance.text }, 
-            { headers: { Authorization: `Bearer ${token}` } }
-          ).then(() => console.log('Route and ETA saved to Django'));
-        } else {
-          console.error('Route failed');
+        setEta(Math.round(leg.duration / 60) + ' min');
+        setDistance((leg.distance / 1000).toFixed(1) + ' km');
+
+        const routePoints = result.routes[0].overview_path;
+        for (let i = 0; i < routePoints.length; i += 20) {
+          searchRestaurants(routePoints[i]);
         }
+
+        axios.post('http://127.0.0.1:8000/api/routes/', 
+          { origin, destination, eta: Math.round(leg.duration / 60) + ' min', distance: (leg.distance / 1000).toFixed(1) + ' km' }, 
+          { headers: { Authorization: `Bearer ${token}` } }
+        ).then(() => console.log('Route and ETA saved to Django'));
+      } else {
+        console.error('Route failed');
       }
-    );
+    });
   };
 
   const searchRestaurants = (location) => {
@@ -91,6 +108,19 @@ function RoutePlanner({ token }) {
     );
   };
 
+  const renderPlaceInfo = (place) => (
+    <div>
+      <h4>{place.name}</h4>
+      <p>⭐ {place.rating || 'N/A'} — {place.types?.find(t => t !== 'restaurant') || 'restaurant'}</p>
+      <button onClick={() => {
+        setWaypoint(place.geometry.location);
+        setModalPlace(null);
+        setSelectedPlace(null);
+        calculateRoute(place.geometry.location);
+      }}>Add to Route</button>
+    </div>
+  );
+
   return (
     <div>
       <h2>Route Planner</h2>
@@ -117,7 +147,7 @@ function RoutePlanner({ token }) {
           </div>
         )}
 
-        <button onClick={calculateRoute}>Calculate Route</button>
+        <button onClick={() => calculateRoute()}>Calculate Route</button>
 
         {directions && eta && (
           <h3>Estimated Time of Arrival (ETA): {eta} - Distance: {distance}</h3>
@@ -125,16 +155,56 @@ function RoutePlanner({ token }) {
 
         <GoogleMap mapContainerStyle={mapContainerStyle} center={{ lat: 32.0853, lng: 34.7818 }} zoom={12}>
           {directions && <DirectionsRenderer directions={directions} />}
+
           {places.map((place, i) => (
-            <Marker key={i} position={place.geometry.location} title={place.name} />
+            <Marker
+              key={i}
+              position={place.geometry.location}
+              onClick={() => setSelectedPlace(place)}
+              title={place.name}
+            />
           ))}
+
+          {waypoint && (
+            <Marker
+              position={waypoint}
+              icon={{ url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png' }}
+              title="Stop"
+            />
+          )}
+
+          {destination && (
+            <Marker
+              position={directions?.routes[0]?.legs?.slice(-1)[0]?.end_location}
+              icon={{ url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png' }}
+              title="Final Destination"
+            />
+          )}
+
+          {selectedPlace && (
+            <InfoWindow
+              position={selectedPlace.geometry.location}
+              onCloseClick={() => setSelectedPlace(null)}
+            >
+              {renderPlaceInfo(selectedPlace)}
+            </InfoWindow>
+          )}
         </GoogleMap>
       </LoadScript>
 
       <h3>Restaurants on route:</h3>
       <ul>
-        {places.map((place, i) => <li key={i}>{place.name}</li>)}
+        {places.map((place, i) => (
+          <li key={i} style={{ cursor: 'pointer' }} onClick={() => setModalPlace(place)}>{place.name}</li>
+        ))}
       </ul>
+
+      {modalPlace && (
+        <div style={{ position: 'fixed', top: '20%', left: '35%', padding: '1rem', backgroundColor: 'white', border: '1px solid #ccc', zIndex: 1000 }}>
+          <button onClick={() => setModalPlace(null)} style={{ float: 'right' }}>✖</button>
+          {renderPlaceInfo(modalPlace)}
+        </div>
+      )}
     </div>
   );
 }
