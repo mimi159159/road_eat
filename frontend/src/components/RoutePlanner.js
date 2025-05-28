@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import {
   GoogleMap, LoadScript, DirectionsRenderer, Marker, Autocomplete, InfoWindow
@@ -19,6 +19,9 @@ function RoutePlanner({ token }) {
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [modalPlace, setModalPlace] = useState(null);
   const [waypoint, setWaypoint] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
+  const locationWatcher = useRef(null);
+  const lastUpdateTime = useRef(0);
 
   const [originAutocomplete, setOriginAutocomplete] = useState(null);
   const [destinationAutocomplete, setDestinationAutocomplete] = useState(null);
@@ -40,47 +43,94 @@ function RoutePlanner({ token }) {
     }
   };
 
-  const calculateRoute = (overrideWaypoint = null) => {
-    const DirectionsServiceInstance = new window.google.maps.DirectionsService();
-    const routeConfig = {
-      origin,
-      destination,
-      travelMode: window.google.maps.TravelMode.DRIVING
-    };
-    if (overrideWaypoint || waypoint) {
-      routeConfig.waypoints = [{ location: overrideWaypoint || waypoint, stopover: true }];
-    }
+  const calculateRoute = (overrideOrigin = null, overrideWaypoint = null) => {
+  const DirectionsServiceInstance = new window.google.maps.DirectionsService();
 
-    DirectionsServiceInstance.route(routeConfig, (result, status) => {
-      if (status === 'OK') {
-        setDirections(result);
-        setPlaces([]);
+  const originToUse = overrideOrigin ? overrideOrigin : origin;
+  const finalWaypoint = overrideWaypoint || waypoint;
 
-        const leg = result.routes[0].legs.reduce(
-          (acc, leg) => {
-            acc.duration += leg.duration.value;
-            acc.distance += leg.distance.value;
-            return acc;
-          },
-          { duration: 0, distance: 0 }
-        );
+  const routeConfig = {
+    origin: originToUse,
+    destination,
+    travelMode: window.google.maps.TravelMode.DRIVING
+  };
 
-        setEta(Math.round(leg.duration / 60) + ' min');
-        setDistance((leg.distance / 1000).toFixed(1) + ' km');
+  if (finalWaypoint) {
+    routeConfig.waypoints = [{ location: finalWaypoint, stopover: true }];
+  }
 
+  DirectionsServiceInstance.route(routeConfig, (result, status) => {
+    if (status === 'OK') {
+      setDirections(result);
+      setPlaces([]);
+
+      const allLegs = result.routes[0].legs;
+      const totalDuration = allLegs.reduce((sum, leg) => sum + leg.duration.value, 0);
+      const totalDistance = allLegs.reduce((sum, leg) => sum + leg.distance.value, 0);
+      const etaStr = Math.round(totalDuration / 60) + ' min';
+      const distanceStr = (totalDistance / 1000).toFixed(1) + ' km';
+
+      setEta(etaStr);
+      setDistance(distanceStr);
+
+      if (!finalWaypoint) {
         const routePoints = result.routes[0].overview_path;
         for (let i = 0; i < routePoints.length; i += 20) {
           searchRestaurants(routePoints[i]);
         }
-
-        axios.post('http://127.0.0.1:8000/api/routes/', 
-          { origin, destination, eta: Math.round(leg.duration / 60) + ' min', distance: (leg.distance / 1000).toFixed(1) + ' km' }, 
-          { headers: { Authorization: `Bearer ${token}` } }
-        ).then(() => console.log('Route and ETA saved to Django'));
-      } else {
-        console.error('Route failed');
       }
-    });
+
+      const originStr = typeof originToUse === 'string'
+        ? originToUse
+        : `${originToUse.lat},${originToUse.lng}`;
+
+      axios.post('http://127.0.0.1:8000/api/routes/',
+        { origin: originStr, destination, eta: etaStr, distance: distanceStr },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    } else {
+      console.error('Directions request failed due to', status);
+    }
+  });
+};
+
+
+  const handleLetsGo = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((position) => {
+        const current = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        };
+        setUserLocation(current);
+        setPlaces([]);
+        calculateRoute(current);
+
+        // Start tracking location
+        if (locationWatcher.current) {
+          navigator.geolocation.clearWatch(locationWatcher.current);
+        }
+
+        locationWatcher.current = navigator.geolocation.watchPosition(
+          (pos) => {
+            const now = Date.now();
+            if (now - lastUpdateTime.current > 5000) { // 5 second throttle
+              lastUpdateTime.current = now;
+              const updated = {
+                lat: pos.coords.latitude,
+                lng: pos.coords.longitude
+              };
+              setUserLocation(updated);
+              calculateRoute(updated);
+            }
+          },
+          console.error,
+          { enableHighAccuracy: true, maximumAge: 2000, timeout: 5000 }
+        );
+      });
+    } else {
+      alert("Geolocation is not supported by this browser.");
+    }
   };
 
   const searchRestaurants = (location) => {
@@ -114,9 +164,10 @@ function RoutePlanner({ token }) {
       <p>⭐ {place.rating || 'N/A'} — {place.types?.find(t => t !== 'restaurant') || 'restaurant'}</p>
       <button onClick={() => {
         setWaypoint(place.geometry.location);
+        setPlaces([]);
         setModalPlace(null);
         setSelectedPlace(null);
-        calculateRoute(place.geometry.location);
+        calculateRoute(null, place.geometry.location);
       }}>Add to Route</button>
     </div>
   );
@@ -148,12 +199,13 @@ function RoutePlanner({ token }) {
         )}
 
         <button onClick={() => calculateRoute()}>Calculate Route</button>
+        <button onClick={handleLetsGo}>Let's Go</button>
 
         {directions && eta && (
           <h3>Estimated Time of Arrival (ETA): {eta} - Distance: {distance}</h3>
         )}
 
-        <GoogleMap mapContainerStyle={mapContainerStyle} center={{ lat: 32.0853, lng: 34.7818 }} zoom={12}>
+        <GoogleMap mapContainerStyle={mapContainerStyle} center={userLocation || { lat: 32.0853, lng: 34.7818 }} zoom={12}>
           {directions && <DirectionsRenderer directions={directions} />}
 
           {places.map((place, i) => (
@@ -173,11 +225,19 @@ function RoutePlanner({ token }) {
             />
           )}
 
-          {destination && (
+          {destination && directions?.routes[0]?.legs?.slice(-1)[0] && (
             <Marker
-              position={directions?.routes[0]?.legs?.slice(-1)[0]?.end_location}
+              position={directions.routes[0].legs.slice(-1)[0].end_location}
               icon={{ url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png' }}
               title="Final Destination"
+            />
+          )}
+
+          {userLocation && (
+            <Marker
+              position={userLocation}
+              icon={{ url: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png' }}
+              title="Your Location"
             />
           )}
 
