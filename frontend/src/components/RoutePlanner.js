@@ -84,7 +84,7 @@ function RoutePlanner({ token }) {
         ? originToUse
         : `${originToUse.lat},${originToUse.lng}`;
 
-      axios.post('http://127.0.0.1:8000/api/routes/',
+     axios.post('http://10.0.2.2:8000/api/routes/',
         { origin: originStr, destination, eta: etaStr, distance: distanceStr },
         { headers: { Authorization: `Bearer ${token}` } }
       );

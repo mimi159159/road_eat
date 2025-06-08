@@ -13,7 +13,7 @@ function App() {
   return (
     <div>
       <Login onLogin={setToken} />
-      <p>Don't have an account? <button onClick={() => setShowRegister(true)}>Register</button></p>
+      
     </div>
   );
 }
