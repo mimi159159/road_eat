@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import './Login.css';
+import { useNavigate } from 'react-router-dom';
 
 function Login({ onLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
   const [isSignup, setIsSignup] = useState(false);
+  const navigate = useNavigate();
 
   const handleSubmit = () => {
     const url = isSignup ? 'http://127.0.0.1:8000/api/register/' : 'http://127.0.0.1:8000/api/token/';
@@ -14,8 +16,10 @@ function Login({ onLogin }) {
 
     axios.post(url, payload)
       .then(res => {
-        if (!isSignup) onLogin(res.data.access);
-        else alert('Signup successful!');
+        if (!isSignup) {
+          onLogin(res.data.access);
+        navigate('/routes');}
+        else {alert('Signup successful!');}
       })
       .catch(() => alert(isSignup ? "Signup failed" : "Login failed"));
   };

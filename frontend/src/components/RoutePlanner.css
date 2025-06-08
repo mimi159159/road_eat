@@ -1,0 +1,124 @@
+.routeplanner-container {
+  display: flex;
+  height: 100vh;
+  background: #f7f7f7;
+  font-family: 'Poppins', sans-serif;
+}
+
+.routeplanner-sidebar {
+  width: 380px;
+  min-width: 320px;
+  max-width: 450px;
+  background: rgba(255,255,255,0.95);
+  box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+  padding: 2rem 1.5rem 1rem 2rem;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  z-index: 2;
+}
+
+.routeplanner-sidebar h2 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  color: #4e4e4e;
+  font-weight: 700;
+}
+
+.routeplanner-sidebar input[type="text"] {
+  width: 90%;
+  padding: 0.4rem 0.8rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.routeplanner-sidebar input[type="number"] {
+  width: 90%;
+  padding: 0.4rem 0.8rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.routeplanner-sidebar button {
+  margin-right: 8px;
+  margin-top: 2px;
+  padding: 0.35rem 1.1rem;
+  border-radius: 6px;
+  background: #1976d2;
+  color: white;
+  border: none;
+  font-weight: 500;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.routeplanner-sidebar button:hover {
+  background: #10529e;
+}
+
+.routeplanner-sidebar label {
+  font-size: 0.96rem;
+  color: #666;
+  margin-right: 10px;
+}
+
+.routeplanner-sidebar h3 {
+  margin: 1.5rem 0 0.5rem 0;
+  font-size: 1.13rem;
+  color: #374151;
+  font-weight: 600;
+}
+
+.routeplanner-restaurant-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.7rem 0;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.routeplanner-restaurant-list li {
+  padding: 0.2rem 0.7rem 0.2rem 0;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+.routeplanner-restaurant-list li:hover {
+  background: #e3e3f8;
+  color: #333;
+}
+
+.routeplanner-map {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100vh;
+}
+
+.routeplanner-modal {
+  position: fixed;
+  top: 22%;
+  left: 45%;
+  min-width: 250px;
+  max-width: 350px;
+  background-color: #fff;
+  border: 2px solid #1976d2;
+  border-radius: 16px;
+  z-index: 1000;
+  padding: 1rem 1.2rem 1.2rem 1rem;
+  box-shadow: 0 6px 24px rgba(31,50,110,0.18);
+}
+.routeplanner-modal button {
+  float: right;
+  background: #d32f2f;
+  margin-top: -6px;
+  margin-right: -6px;
+  padding: 2px 9px 3px 8px;
+  border-radius: 50%;
+  color: white;
+  border: none;
+  font-size: 1.1rem;
+}
