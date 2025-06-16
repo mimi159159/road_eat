@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import './Login.css';
 import { useNavigate } from 'react-router-dom';
+import FloatingProfileButton from './FloatingProfileButton';
+
 
 function Login({ onLogin }) {
   const [username, setUsername] = useState('');
@@ -11,14 +13,16 @@ function Login({ onLogin }) {
   const navigate = useNavigate();
 
   const handleSubmit = () => {
-    const url = isSignup ? 'http://127.0.0.1:8000/api/register/' : 'http://127.0.0.1:8000/api/token/';
+    const url = isSignup ? 'http://10.100.102.48:8000/api/register/' : 'http://10.100.102.48:8000/api/token/';
     const payload = { username,email, password };
 
     axios.post(url, payload)
       .then(res => {
         if (!isSignup) {
           onLogin(res.data.access);
-        navigate('/routes');}
+        navigate('/routes');
+        localStorage.setItem('access_token', res.data.access);
+          onLogin(res.data.access);}
         else {alert('Signup successful!');}
       })
       .catch(() => alert(isSignup ? "Signup failed" : "Login failed"));
@@ -78,7 +82,10 @@ function Login({ onLogin }) {
           </div>
         </div>
       </div>
+       <FloatingProfileButton />
     </div>
+   
+
   );
 }
 

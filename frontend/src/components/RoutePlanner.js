@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import FloatingProfileButton from './FloatingProfileButton';
 import axios from 'axios';
 import {
   GoogleMap,
@@ -89,7 +90,7 @@ function RoutePlanner({ token }) {
           ? originToUse
           : `${originToUse.lat},${originToUse.lng}`;
 
-        axios.post('http://10.0.2.2:8000/api/routes/',
+        axios.post('http://10.100.102.48:8000/api/routes/',
           { origin: originStr, destination, eta: etaStr, distance: distanceStr },
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -267,6 +268,7 @@ function RoutePlanner({ token }) {
           </div>
         )}
       </div>
+       <FloatingProfileButton />
     </div>
   );
 }

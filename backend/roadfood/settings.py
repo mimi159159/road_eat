@@ -18,7 +18,8 @@ GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY', 'AIzaSyAgSKju-_3E-9JRqkae
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
@@ -28,7 +29,8 @@ SECRET_KEY = 'django-insecure-6@khq32vh!hz^jykzols5#71+nxak*p0e4q2bxy^2f_^=!(!c@
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['192.168.30.23', 'localhost', '127.0.0.1', '*']
+
 
 
 # Application definition
