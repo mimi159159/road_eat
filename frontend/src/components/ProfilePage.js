@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 
 
-const API_URL = "http://10.100.102.48:8000/api/profile/";
+const API_URL = "http://localhost:8000/api/profile/";
 
 function ProfilePage() {
   const [profile, setProfile] = useState(null);
@@ -56,7 +56,7 @@ function ProfilePage() {
         <img
           src={
             profile.profile_picture
-              ? `http://10.100.102.48:8000${profile.profile_picture}`
+              ? `http://localhost:8000${profile.profile_picture}`
               : "/images/the_user.png"
           }
           alt="Profile"

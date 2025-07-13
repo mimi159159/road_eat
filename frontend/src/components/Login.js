@@ -11,7 +11,7 @@ function Login({ onLogin }) {
   const navigate = useNavigate();
 
   const handleSubmit = () => {
-    const url = isSignup ? 'http://10.100.102.48:8000/api/register/' : 'http://10.100.102.48:8000/api/token/';
+    const url = isSignup ? 'http://localhost:8000/api/register/' : 'http://localhost:8000/api/token/';
     const payload = { username, email, password };
 
     axios.post(url, payload)
