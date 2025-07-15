@@ -70,6 +70,10 @@ function App() {
             }
           />
           <Route
+            path="/login"
+            element={<Login onLogin={handleLogin} />}
+          />
+          <Route
             path="/routes"
             element={
               <ProtectedRoute token={token} onLogout={handleLogout}>

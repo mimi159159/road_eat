@@ -5,21 +5,24 @@ import './FloatingProfileButton.css';
 export default function FloatingProfileButton({ onLogout }) {
   const navigate = useNavigate();
 
+  const handleLogout = () => {
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('login_time');
+  if (onLogout) onLogout();
+  navigate('/login', { replace: true });
+};
+
   return (
     <>
-      {/* Top-left Logout button */}
+      
       <div style={{
         position: 'fixed',
         top: 20,
         left: 20,
-        zIndex: 9999,
-        pointerEvents: 'auto'
+        zIndex: 9999
       }}>
         <button
-          onClick={() => {
-            if (onLogout) onLogout();
-            navigate('/');
-          }}
+          onClick={handleLogout}
           style={{
             background: 'black',
             color: '#fff',
@@ -28,8 +31,7 @@ export default function FloatingProfileButton({ onLogout }) {
             padding: '8px 14px',
             fontSize: '14px',
             fontWeight: 'bold',
-            cursor: 'pointer',
-            pointerEvents: 'auto'
+            cursor: 'pointer'
           }}
         >
           Logout
