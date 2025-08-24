@@ -1,18 +1,25 @@
 import React, { useState, useRef } from 'react';
-import FloatingProfileButton from './FloatingProfileButton';
 import axios from 'axios';
 import {
   GoogleMap,
   DirectionsRenderer,
   Marker,
   Autocomplete,
-  InfoWindow
+  InfoWindow,
+  useJsApiLoader
 } from '@react-google-maps/api';
 import './RoutePlanner.css';
 
 const mapContainerStyle = { width: '100%', height: '90vh' };
 
-function RoutePlanner({ token }) {
+function RoutePlanner({ token, mapsApiKey }) {
+  // 1) Load Maps JS here and gate rendering
+  const { isLoaded, loadError } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: mapsApiKey,
+    libraries: ['places'],
+  });
+
   const [origin, setOrigin] = useState('');
   const [destination, setDestination] = useState('');
   const [directions, setDirections] = useState(null);
@@ -32,35 +39,25 @@ function RoutePlanner({ token }) {
   const [originAutocomplete, setOriginAutocomplete] = useState(null);
   const [destinationAutocomplete, setDestinationAutocomplete] = useState(null);
 
-  const handleOriginLoad = (autocomplete) => setOriginAutocomplete(autocomplete);
-  const handleDestinationLoad = (autocomplete) => setDestinationAutocomplete(autocomplete);
-
   const handleOriginSelect = () => {
     const place = originAutocomplete?.getPlace();
-    if (place?.formatted_address) {
-      setOrigin(place.formatted_address);
-    }
+    if (place?.formatted_address) setOrigin(place.formatted_address);
   };
-
   const handleDestinationSelect = () => {
     const place = destinationAutocomplete?.getPlace();
-    if (place?.formatted_address) {
-      setDestination(place.formatted_address);
-    }
+    if (place?.formatted_address) setDestination(place.formatted_address);
   };
 
   const calculateRoute = (overrideOrigin = null, overrideWaypoint = null) => {
-    const DirectionsServiceInstance = new window.google.maps.DirectionsService();
-
-    const originToUse = overrideOrigin ? overrideOrigin : origin;
+    const originToUse = overrideOrigin || origin;
     const finalWaypoint = overrideWaypoint || waypoint;
 
+    const DirectionsServiceInstance = new window.google.maps.DirectionsService();
     const routeConfig = {
       origin: originToUse,
       destination,
       travelMode: window.google.maps.TravelMode.DRIVING
     };
-
     if (finalWaypoint) {
       routeConfig.waypoints = [{ location: finalWaypoint, stopover: true }];
     }
@@ -90,7 +87,8 @@ function RoutePlanner({ token }) {
           ? originToUse
           : `${originToUse.lat},${originToUse.lng}`;
 
-        axios.post('http://localhost:8000/api/routes/',
+        axios.post(
+          'http://localhost:8000/api/routes/',
           { origin: originStr, destination, eta: etaStr, distance: distanceStr },
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -101,41 +99,28 @@ function RoutePlanner({ token }) {
   };
 
   const handleLetsGo = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition((position) => {
-        const current = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude
-        };
-        setUserLocation(current);
-        setPlaces([]);
-        calculateRoute(current);
+    if (!navigator.geolocation) return alert('Geolocation is not supported by this browser.');
+    navigator.geolocation.getCurrentPosition((position) => {
+      const current = { lat: position.coords.latitude, lng: position.coords.longitude };
+      setUserLocation(current);
+      setPlaces([]);
+      calculateRoute(current);
 
-        // Start tracking location
-        if (locationWatcher.current) {
-          navigator.geolocation.clearWatch(locationWatcher.current);
-        }
-
-        locationWatcher.current = navigator.geolocation.watchPosition(
-          (pos) => {
-            const now = Date.now();
-            if (now - lastUpdateTime.current > 5000) { // 5 second throttle
-              lastUpdateTime.current = now;
-              const updated = {
-                lat: pos.coords.latitude,
-                lng: pos.coords.longitude
-              };
-              setUserLocation(updated);
-              calculateRoute(updated);
-            }
-          },
-          console.error,
-          { enableHighAccuracy: true, maximumAge: 2000, timeout: 5000 }
-        );
-      });
-    } else {
-      alert("Geolocation is not supported by this browser.");
-    }
+      if (locationWatcher.current) navigator.geolocation.clearWatch(locationWatcher.current);
+      locationWatcher.current = navigator.geolocation.watchPosition(
+        (pos) => {
+          const now = Date.now();
+          if (now - lastUpdateTime.current > 5000) {
+            lastUpdateTime.current = now;
+            const updated = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            setUserLocation(updated);
+            calculateRoute(updated);
+          }
+        },
+        console.error,
+        { enableHighAccuracy: true, maximumAge: 2000, timeout: 5000 }
+      );
+    });
   };
 
   const searchRestaurants = (location) => {
@@ -148,15 +133,10 @@ function RoutePlanner({ token }) {
       },
       (results, status) => {
         if (status === window.google.maps.places.PlacesServiceStatus.OK) {
-          const filtered = showFilters ? results.filter(r => {
-            const drivingTime = r.duration?.value || 0;
-            return drivingTime / 60 <= maxEtaMinutes;
-          }) : results;
-
-          if (filtered.length === 0) {
-            alert('No restaurants found for the given filters.');
-          }
-
+          const filtered = showFilters
+            ? results.filter(r => (r.duration?.value || 0) / 60 <= maxEtaMinutes)
+            : results;
+          if (filtered.length === 0) alert('No restaurants found for the given filters.');
           setPlaces(prev => [...prev, ...filtered]);
         }
       }
@@ -176,6 +156,10 @@ function RoutePlanner({ token }) {
       }}>Add to Route</button>
     </div>
   );
+
+  // 2) Handle load states cleanly
+  if (loadError) return <div style={{ padding: 16 }}>Map failed to load.</div>;
+  if (!isLoaded) return <div style={{ padding: 16 }}>Loading map…</div>;
 
   return (
     <div className="routeplanner-container">
@@ -215,6 +199,7 @@ function RoutePlanner({ token }) {
           ))}
         </ul>
       </div>
+
       {/* RIGHT COLUMN */}
       <div className="routeplanner-map">
         <GoogleMap
@@ -261,6 +246,7 @@ function RoutePlanner({ token }) {
             </InfoWindow>
           )}
         </GoogleMap>
+
         {modalPlace && (
           <div className="routeplanner-modal">
             <button onClick={() => setModalPlace(null)}>✖</button>
@@ -268,7 +254,6 @@ function RoutePlanner({ token }) {
           </div>
         )}
       </div>
-       <FloatingProfileButton />
     </div>
   );
 }
